@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oficina-api-default
+  namespace: oficina
+spec:
+  podSelector: {matchLabels: {app: oficina-api}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: []
+      ports: [{protocol: TCP, port: 8000}]
+  egress:
+    - to: []

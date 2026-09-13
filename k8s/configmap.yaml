@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oficina-api-config
+  namespace: oficina
+data:
+  DD_SERVICE: oficina-api
+  DD_ENV: hml
+  DD_VERSION: v3

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oficina-api
+  namespace: oficina
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: oficina-api }
+  template:
+    metadata:
+      labels: { app: oficina-api }
+      annotations:
+        ad.datadoghq.com/api.logs: '[{"source":"python","service":"oficina-api"}]'
+    spec:
+      containers:
+        - name: api
+          image: IMAGE_PLACEHOLDER
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: oficina-api-config}
+            - secretRef: {name: oficina-api-secrets}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /ready, port: 8000}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 15
+            periodSeconds: 10
