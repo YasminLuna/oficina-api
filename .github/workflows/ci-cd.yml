@@ -32,7 +32,7 @@ jobs:
         run: docker build -t oficina-api:${{ github.sha }} .
 
   deploy:
-    if: github.event_name == 'push' && vars.ECR_REPOSITORY != '' && vars.EKS_CLUSTER_NAME != ''
+    if: github.event_name == 'push' && vars.ENABLE_DEPLOY == 'true' && vars.ECR_REPOSITORY != '' && vars.EKS_CLUSTER_NAME != ''
     needs: test-build
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'homologation' }}
@@ -58,6 +58,6 @@ jobs:
         run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION || 'us-east-1' }}"
       - name: Deploy API
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -k k8s/
           kubectl -n oficina set image deployment/oficina-api oficina-api="$IMAGE"
           kubectl -n oficina rollout status deployment/oficina-api --timeout=180s
