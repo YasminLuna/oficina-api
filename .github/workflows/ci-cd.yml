@@ -24,6 +24,7 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Tests and coverage
         env:
+          PYTHONPATH: .
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET: test-secret
         run: pytest --cov=app --cov-report=term-missing
