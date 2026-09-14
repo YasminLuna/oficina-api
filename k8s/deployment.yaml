@@ -4,30 +4,58 @@ metadata:
   name: oficina-api
   namespace: oficina
 spec:
-  replicas: 2
+  replicas: 1
   selector:
-    matchLabels: { app: oficina-api }
+    matchLabels:
+      app: oficina-api
   template:
     metadata:
-      labels: { app: oficina-api }
+      labels:
+        app: oficina-api
       annotations:
         ad.datadoghq.com/api.logs: '[{"source":"python","service":"oficina-api"}]'
+        ad.datadoghq.com/api.checks: |
+          {"openmetrics":{"instances":[{"openmetrics_endpoint":"http://%%host%%:8000/metrics","namespace":"oficina","metrics":["oficina_*"]}]}}
     spec:
       containers:
         - name: api
           image: IMAGE_PLACEHOLDER
-          ports: [{containerPort: 8000}]
+          ports:
+            - containerPort: 8000
           envFrom:
-            - configMapRef: {name: oficina-api-config}
-            - secretRef: {name: oficina-api-secrets}
+            - configMapRef:
+                name: oficina-api-config
+            - secretRef:
+                name: oficina-api-secrets
+          env:
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_AGENT_PORT
+              value: "8126"
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            - name: DD_RUNTIME_METRICS_ENABLED
+              value: "true"
           resources:
-            requests: {cpu: 100m, memory: 128Mi}
-            limits: {cpu: 500m, memory: 512Mi}
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           readinessProbe:
-            httpGet: {path: /ready, port: 8000}
-            initialDelaySeconds: 5
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 8
             periodSeconds: 5
+            failureThreshold: 6
           livenessProbe:
-            httpGet: {path: /health, port: 8000}
-            initialDelaySeconds: 15
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
             periodSeconds: 10
+            failureThreshold: 3
