@@ -94,10 +94,31 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy API
+        shell: bash
         run: |
+          set -uo pipefail
           kubectl apply -k k8s/
           kubectl -n oficina set image deployment/oficina-api api="$IMAGE"
-          kubectl -n oficina rollout status deployment/oficina-api --timeout=300s
+
+          if ! kubectl -n oficina rollout status deployment/oficina-api --timeout=180s; then
+            echo "::error::Deployment rollout failed. Collecting diagnostics..."
+            echo "===== DEPLOYMENT ====="
+            kubectl -n oficina describe deployment oficina-api || true
+            echo "===== PODS ====="
+            kubectl -n oficina get pods -o wide || true
+            echo "===== POD DESCRIBE ====="
+            kubectl -n oficina describe pods -l app=oficina-api || true
+            echo "===== CURRENT LOGS ====="
+            kubectl -n oficina logs -l app=oficina-api --all-containers=true --tail=200 --prefix=true || true
+            echo "===== PREVIOUS LOGS ====="
+            for pod in $(kubectl -n oficina get pods -l app=oficina-api -o name 2>/dev/null); do
+              kubectl -n oficina logs "$pod" --all-containers=true --previous --tail=200 --prefix=true 2>/dev/null || true
+            done
+            echo "===== EVENTS ====="
+            kubectl -n oficina get events --sort-by='.lastTimestamp' | tail -100 || true
+            exit 1
+          fi
+
           kubectl -n oficina get pods -o wide
           kubectl -n oficina get hpa
 
@@ -135,6 +156,10 @@ jobs:
             echo "Aguardando healthcheck... tentativa $i/20"
             sleep 10
           done
+          echo "Healthcheck failed; collecting service diagnostics"
+          kubectl -n oficina get service oficina-api -o wide || true
+          kubectl -n oficina get endpoints oficina-api -o wide || true
+          kubectl -n oficina get pods -o wide || true
           exit 1
 
       - name: Publish deployment endpoint
