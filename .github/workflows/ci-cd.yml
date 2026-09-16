@@ -96,7 +96,7 @@ jobs:
       - name: Deploy API
         run: |
           kubectl apply -k k8s/
-          kubectl -n oficina set image deployment/oficina-api oficina-api="$IMAGE"
+          kubectl -n oficina set image deployment/oficina-api api="$IMAGE"
           kubectl -n oficina rollout status deployment/oficina-api --timeout=300s
           kubectl -n oficina get pods -o wide
           kubectl -n oficina get hpa
