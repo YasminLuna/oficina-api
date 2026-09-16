@@ -102,23 +102,13 @@ jobs:
 
           if ! kubectl -n oficina rollout status deployment/oficina-api --timeout=180s; then
             echo "::error::Deployment rollout failed. Collecting diagnostics..."
-            echo "===== DEPLOYMENT ====="
             kubectl -n oficina describe deployment oficina-api || true
-            echo "===== PODS ====="
             kubectl -n oficina get pods -o wide || true
-            echo "===== POD DESCRIBE ====="
             kubectl -n oficina describe pods -l app=oficina-api || true
-            echo "===== CURRENT LOGS ====="
             kubectl -n oficina logs -l app=oficina-api --all-containers=true --tail=200 --prefix=true || true
-            echo "===== PREVIOUS LOGS ====="
-            for pod in $(kubectl -n oficina get pods -l app=oficina-api -o name 2>/dev/null); do
-              kubectl -n oficina logs "$pod" --all-containers=true --previous --tail=200 --prefix=true 2>/dev/null || true
-            done
-            echo "===== EVENTS ====="
             kubectl -n oficina get events --sort-by='.lastTimestamp' | tail -100 || true
             exit 1
           fi
-
           kubectl -n oficina get pods -o wide
           kubectl -n oficina get hpa
 
@@ -132,9 +122,7 @@ jobs:
             if [ -z "$HOST" ]; then
               HOST=$(kubectl -n oficina get service oficina-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             fi
-            if [ -n "$HOST" ]; then
-              break
-            fi
+            if [ -n "$HOST" ]; then break; fi
             echo "Aguardando Load Balancer... tentativa $i/40"
             sleep 15
           done
@@ -150,17 +138,57 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 20); do
-            if curl -fsS "http://$API_HOST/health"; then
-              exit 0
-            fi
+            if curl -fsS "http://$API_HOST/health"; then exit 0; fi
             echo "Aguardando healthcheck... tentativa $i/20"
             sleep 10
           done
-          echo "Healthcheck failed; collecting service diagnostics"
           kubectl -n oficina get service oficina-api -o wide || true
           kubectl -n oficina get endpoints oficina-api -o wide || true
           kubectl -n oficina get pods -o wide || true
           exit 1
+
+      - name: E2E CPF to JWT to protected API
+        if: env.ENV_NAME == 'hml'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_CPF="52998224725"
+
+          echo "Creating/reusing homologation test customer..."
+          curl -fsS -X POST "http://$API_HOST/internal/customers" \
+            -H 'content-type: application/json' \
+            -d "{\"document\":\"$TEST_CPF\",\"name\":\"FIAP E2E HML\"}" >/dev/null
+
+          AUTH_API_ID=$(aws apigatewayv2 get-apis \
+            --query "Items[?Name=='oficina-hml'].ApiId | [0]" --output text)
+          if [ -z "$AUTH_API_ID" ] || [ "$AUTH_API_ID" = "None" ]; then
+            echo "Auth API Gateway oficina-hml não encontrado" >&2
+            exit 1
+          fi
+          GATEWAY_URL="https://${AUTH_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+
+          AUTH_RESPONSE=$(curl -fsS -X POST "$GATEWAY_URL/auth/token" \
+            -H 'content-type: application/json' \
+            -d "{\"cpf\":\"$TEST_CPF\"}")
+          TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.access_token // empty')
+          if [ -z "$TOKEN" ]; then
+            echo "JWT não retornado pela autenticação" >&2
+            exit 1
+          fi
+
+          PROTECTED_STATUS=$(curl -sS -o /tmp/protected.json -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            "$GATEWAY_URL/api/v1/orders")
+          if [ "$PROTECTED_STATUS" != "200" ]; then
+            echo "Endpoint protegido retornou HTTP $PROTECTED_STATUS" >&2
+            cat /tmp/protected.json
+            exit 1
+          fi
+
+          echo "E2E_OK: CPF validado, JWT emitido e endpoint protegido respondeu HTTP 200."
+          echo "E2E_AUTH_URL=$GATEWAY_URL/auth/token" >> "$GITHUB_STEP_SUMMARY"
+          echo "E2E_PROTECTED_API=$GATEWAY_URL/api/v1/orders" >> "$GITHUB_STEP_SUMMARY"
+          echo "E2E_RESULT=SUCCESS (CPF -> JWT -> protected API HTTP 200)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish deployment endpoint
         run: |
