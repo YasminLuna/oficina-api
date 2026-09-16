@@ -5,6 +5,8 @@ metadata:
   namespace: oficina
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: oficina-api
