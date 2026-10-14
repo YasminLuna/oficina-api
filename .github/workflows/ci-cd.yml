@@ -155,9 +155,15 @@ jobs:
           TEST_CPF="52998224725"
 
           echo "Creating/reusing homologation test customer..."
-          curl -fsS -X POST "http://$API_HOST/internal/customers" \
+          CUSTOMER_STATUS=$(curl -sS -o /tmp/customer-e2e.json -w '%{http_code}' -X POST "http://$API_HOST/internal/customers" \
             -H 'content-type: application/json' \
-            -d "{\"document\":\"$TEST_CPF\",\"name\":\"FIAP E2E HML\"}" >/dev/null
+            -d "{\"document\":\"$TEST_CPF\",\"name\":\"FIAP E2E HML\"}")
+          if [ "$CUSTOMER_STATUS" != "200" ]; then
+            echo "::error::Customer setup returned HTTP $CUSTOMER_STATUS"
+            jq -c '{detail: .detail // "unavailable"}' /tmp/customer-e2e.json 2>/dev/null || true
+            kubectl -n oficina logs deployment/oficina-api --tail=80 --all-containers=true || true
+            exit 1
+          fi
 
           AUTH_API_ID=$(aws apigatewayv2 get-apis \
             --query "Items[?Name=='oficina-hml'].ApiId | [0]" --output text)
