@@ -1,0 +1,96 @@
+{
+  "info": {
+    "name": "FIAP Oficina - Fase 3",
+    "description": "Coleção para demonstrar autenticação por CPF, API protegida, healthchecks e fluxo de Ordem de Serviço.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "gatewayUrl", "value": "https://PREENCHER.execute-api.us-east-1.amazonaws.com"},
+    {"key": "cpf", "value": "52998224725"},
+    {"key": "token", "value": ""},
+    {"key": "orderId", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{gatewayUrl}}/health"
+      }
+    },
+    {
+      "name": "Cadastrar cliente para demonstração",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document\": \"{{cpf}}\",\n  \"name\": \"Cliente Demonstração\"\n}"
+        },
+        "url": "{{gatewayUrl}}/internal/customers"
+      }
+    },
+    {
+      "name": "Autenticar por CPF",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('token', body.access_token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"cpf\": \"{{cpf}}\"\n}"},
+        "url": "{{gatewayUrl}}/auth/token"
+      }
+    },
+    {
+      "name": "Criar OS protegida",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  pm.collectionVariables.set('orderId', pm.response.json().id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"vehicle_plate\": \"ABC1D23\"\n}"},
+        "url": "{{gatewayUrl}}/api/v1/orders"
+      }
+    },
+    {
+      "name": "Listar OS protegidas",
+      "request": {
+        "method": "GET",
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+        "url": "{{gatewayUrl}}/api/v1/orders"
+      }
+    },
+    {
+      "name": "Alterar status da OS",
+      "request": {
+        "method": "PATCH",
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+        "url": "{{gatewayUrl}}/api/v1/orders/{{orderId}}/status?status=Diagn%C3%B3stico"
+      }
+    }
+  ]
+}
