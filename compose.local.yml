@@ -1,0 +1,122 @@
+# Local-only FIAP stack. No AWS credentials or cloud resources required.
+# Clone oficina-api, oficina-billing-service and oficina-execution-service
+# into the same parent directory.
+services:
+  postgres-os:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: oficina
+      POSTGRES_PASSWORD: local-dev-only
+      POSTGRES_DB: oficina_os
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - oficina_os_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oficina -d oficina_os"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  oficina-api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://oficina:local-dev-only@postgres-os:5432/oficina_os
+      JWT_SECRET: local-development-only-change-me
+      DD_TRACE_ENABLED: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres-os:
+        condition: service_healthy
+
+  billing:
+    build: ../oficina-billing-service
+    command: ["uvicorn", "app.persistent_api:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      BILLING_SQLITE_PATH: /data/quotes.db
+    volumes:
+      - billing_data:/data
+    user: "0:0" # Local-only workaround: existing named volume is root-owned; remove after proper volume initialization.
+    ports:
+      - "127.0.0.1:8001:8080"
+
+  execution:
+    build: ../oficina-execution-service
+    environment:
+      EXECUTION_TABLE_NAME: oficina-execution-local
+      DYNAMODB_ENDPOINT_URL: http://dynamodb-local:8000
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8002:8080"
+
+  saga-worker:
+    build: .
+    entrypoint: ["python", "-m", "app.local_saga_worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://oficina:local-dev-only@postgres-os:5432/oficina_os
+      SQS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    depends_on:
+      postgres-os:
+        condition: service_healthy
+      billing:
+        condition: service_started
+      execution:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+    profiles: ["emulators"]
+
+  # DynamoDB Local with durable Docker volume (no AWS account).
+  dynamodb-local:
+    image: amazon/dynamodb-local:2.6.1
+    user: "0:0" # Local named volume ownership; harden permissions in a follow-up.
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+    ports:
+      - "127.0.0.1:8003:8000"
+  dynamodb-init:
+    build: ../oficina-execution-service
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import boto3, time
+        db = boto3.client("dynamodb", endpoint_url="http://dynamodb-local:8000", region_name="us-east-1", aws_access_key_id="local", aws_secret_access_key="local")
+        for attempt in range(30):
+            try:
+                db.list_tables()
+                break
+            except Exception:
+                if attempt == 29:
+                    raise
+                time.sleep(1)
+        if "oficina-execution-local" not in db.list_tables()["TableNames"]:
+            db.create_table(TableName="oficina-execution-local", KeySchema=[{"AttributeName":"order_id","KeyType":"HASH"}], AttributeDefinitions=[{"AttributeName":"order_id","AttributeType":"S"}], BillingMode="PAY_PER_REQUEST")
+        print("DynamoDB Local table ready")
+    depends_on:
+      - dynamodb-local
+
+  localstack:
+    image: localstack/localstack:4.6
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./localstack/init/ready.d:/etc/localstack/init/ready.d:ro
+    ports:
+      - "127.0.0.1:4566:4566"
+    profiles: ["emulators"]
+
+volumes:
+  oficina_os_data:
+  billing_data:
+  dynamodb_data:
