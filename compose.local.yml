@@ -55,10 +55,12 @@ services:
     ports:
       - "127.0.0.1:8002:8080"
 
-  # Local DynamoDB emulator (currently ephemeral; table is recreated on startup).
+  # DynamoDB Local with durable Docker volume (no AWS account).
   dynamodb-local:
     image: amazon/dynamodb-local:2.6.1
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
     ports:
       - "127.0.0.1:8003:8000"
   dynamodb-init:
@@ -94,3 +96,4 @@ services:
 volumes:
   oficina_os_data:
   billing_data:
+  dynamodb_data:
