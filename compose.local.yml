@@ -43,17 +43,44 @@ services:
 
   execution:
     build: ../oficina-execution-service
+    environment:
+      EXECUTION_TABLE_NAME: oficina-execution-local
+      DYNAMODB_ENDPOINT_URL: http://dynamodb-local:8000
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:8002:8080"
 
-  # These are local emulators for the upcoming persistent integration.
-  # Existing Billing/Execution APIs still use in-memory storage.
+  # Local DynamoDB emulator (currently ephemeral; table is recreated on startup).
   dynamodb-local:
     image: amazon/dynamodb-local:2.6.1
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
     ports:
       - "127.0.0.1:8003:8000"
-    profiles: ["emulators"]
+  dynamodb-init:
+    build: ../oficina-execution-service
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import boto3, time
+        db = boto3.client("dynamodb", endpoint_url="http://dynamodb-local:8000", region_name="us-east-1", aws_access_key_id="local", aws_secret_access_key="local")
+        for attempt in range(30):
+            try:
+                db.list_tables()
+                break
+            except Exception:
+                if attempt == 29:
+                    raise
+                time.sleep(1)
+        if "oficina-execution-local" not in db.list_tables()["TableNames"]:
+            db.create_table(TableName="oficina-execution-local", KeySchema=[{"AttributeName":"order_id","KeyType":"HASH"}], AttributeDefinitions=[{"AttributeName":"order_id","AttributeType":"S"}], BillingMode="PAY_PER_REQUEST")
+        print("DynamoDB Local table ready")
+    depends_on:
+      - dynamodb-local
 
   localstack:
     image: localstack/localstack:4.6
