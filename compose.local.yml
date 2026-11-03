@@ -58,6 +58,7 @@ services:
   # DynamoDB Local with durable Docker volume (no AWS account).
   dynamodb-local:
     image: amazon/dynamodb-local:2.6.1
+    user: "0:0" # Local named volume ownership; harden permissions in a follow-up.
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
     volumes:
       - dynamodb_data:/home/dynamodblocal/data
