@@ -90,6 +90,8 @@ services:
     environment:
       SERVICES: sqs
       AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./localstack/init/ready.d:/etc/localstack/init/ready.d:ro
     ports:
       - "127.0.0.1:4566:4566"
     profiles: ["emulators"]
