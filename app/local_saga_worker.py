@@ -62,7 +62,9 @@ def run_saga(event):
     order_id = str(event["order_id"])
     amount = str(event["amount"])
     current = state(order_id)
-    if current in ("COMPLETED", "COMPENSATED"):
+    if current == "COMPENSATION_REQUIRED":
+        raise RuntimeError(f"Saga {order_id} requires manual compensation")
+    if current == "COMPLETED":
         log.info("Skipping terminal saga %s (%s)", order_id, current)
         return
     billing = "http://billing:8080/quotes/" + order_id
