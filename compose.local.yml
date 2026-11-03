@@ -37,6 +37,7 @@ services:
       BILLING_SQLITE_PATH: /data/quotes.db
     volumes:
       - billing_data:/data
+    user: "0:0" # Local-only workaround: existing named volume is root-owned; remove after proper volume initialization.
     ports:
       - "127.0.0.1:8001:8080"
 
