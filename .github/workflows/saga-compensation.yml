@@ -1,0 +1,35 @@
+name: Phase 4 - Saga compensation tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/fase4-microservices]
+    paths:
+      - 'app/local_saga_worker.py'
+      - 'app/local_saga_compensation_e2e.py'
+      - 'tests/test_local_saga_compensation.py'
+      - 'tests/conftest.py'
+      - 'requirements*.txt'
+      - '.github/workflows/saga-compensation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compensation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run Saga compensation tests
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET: test-secret
+          SQS_ENDPOINT_URL: http://localhost:4566
+        run: python -m pytest -p no:cacheprovider tests/test_local_saga_compensation.py -v
