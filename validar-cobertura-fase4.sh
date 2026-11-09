@@ -6,6 +6,11 @@ ROOT="${HOME}/fiap-local"
 OUT="${ROOT}/fase4-cobertura"
 mkdir -p "$OUT"
 overall=0
+if ! command -v python3.13 >/dev/null 2>&1; then
+  echo "ERROR: Python 3.13 required. Install: brew install python@3.13"
+  exit 1
+fi
+PYTHON="$(command -v python3.13)"
 
 for repo in oficina-api oficina-billing-service oficina-execution-service; do
   echo ""
@@ -21,8 +26,15 @@ for repo in oficina-api oficina-billing-service oficina-execution-service; do
     echo "Branch: $(git branch --show-current)"
     echo "Updating from GitHub..."
     git pull --ff-only || exit 1
+    if [[ -x .venv-fase4/bin/python ]]; then
+      current_version=$(.venv-fase4/bin/python -c "import sys; print(str(sys.version_info.major) + \u0027.\u0027 + str(sys.version_info.minor))" 2>/dev/null || true)
+      if [[ "$current_version" != "3.13" ]]; then
+        echo "Replacing incompatible test venv (Python $current_version)"
+        rm -rf .venv-fase4
+      fi
+    fi
     if [[ ! -x .venv-fase4/bin/python ]]; then
-      python3 -m venv .venv-fase4 || exit 1
+      "$PYTHON" -m venv .venv-fase4 || exit 1
     fi
     .venv-fase4/bin/python -m pip install --disable-pip-version-check -q -r requirements-dev.txt ruff==0.13.0 || exit 1
     export SQS_ENDPOINT_URL="${SQS_ENDPOINT_URL:-http://localhost:4566}"
