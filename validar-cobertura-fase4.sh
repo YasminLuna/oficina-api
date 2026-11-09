@@ -24,7 +24,7 @@ for repo in oficina-api oficina-billing-service oficina-execution-service; do
     if [[ ! -x .venv-fase4/bin/python ]]; then
       python3 -m venv .venv-fase4 || exit 1
     fi
-    .venv-fase4/bin/python -m pip install --disable-pip-version-check -q -r requirements-dev.txt || exit 1
+    .venv-fase4/bin/python -m pip install --disable-pip-version-check -q -r requirements-dev.txt ruff==0.13.0 || exit 1
     export SQS_ENDPOINT_URL="${SQS_ENDPOINT_URL:-http://localhost:4566}"
     export AWS_EC2_METADATA_DISABLED=true
     export JWT_SECRET="${JWT_SECRET:-test-secret}"
