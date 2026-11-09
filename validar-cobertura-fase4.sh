@@ -69,6 +69,11 @@ if [[ "${FASE4_BUILD_IMAGES:-0}" == "1" ]]; then
     done
   fi
 fi
+echo ""
+echo "================ Kubernetes static checks ================"
+if ! "${ROOT}/oficina-api/.venv-fase4/bin/python" -m pip install --disable-pip-version-check -q PyYAML==6.0.2 || ! "${ROOT}/oficina-api/.venv-fase4/bin/python" "${ROOT}/oficina-api/scripts/check_k8s_manifests.py"; then
+  overall=1
+fi
 echo "Coverage evidence and logs: $OUT"
 if [[ "$overall" -ne 0 ]]; then
   echo "ATTENTION: one or more repositories failed; inspect the logs above."
