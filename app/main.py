@@ -1,6 +1,6 @@
 import logging
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import time
 import uuid
 from datetime import datetime, timezone
@@ -129,14 +129,13 @@ def list_orders(
     claims: dict = Depends(current_customer),
     db: Session = Depends(get_db),
 ):
-    del claims
     priority = [
         OrderStatus.EXECUTION,
         OrderStatus.WAITING_APPROVAL,
         OrderStatus.DIAGNOSIS,
         OrderStatus.RECEIVED,
     ]
-    rows = db.scalars(select(ServiceOrder).where(ServiceOrder.status.in_(priority))).all()
+    rows = db.scalars(select(ServiceOrder).where(ServiceOrder.customer_id == claims['sub']).where(ServiceOrder.status.in_(priority))).all()
     rank = {status: index for index, status in enumerate(priority)}
     return sorted(rows, key=lambda item: (rank[item.status], item.created_at))
 
@@ -148,10 +147,11 @@ def update_status(
     claims: dict = Depends(current_customer),
     db: Session = Depends(get_db),
 ):
-    del claims
     order = db.get(ServiceOrder, order_id)
     if not order:
         raise HTTPException(status_code=404, detail='OS não encontrada')
+    if str(order.customer_id) != str(claims['sub']):
+        raise HTTPException(status_code=403, detail='OS não pertence ao cliente')
 
     previous_status = order.status
     if previous_status == status:
@@ -201,7 +201,7 @@ def request_quote(
         amount = Decimal(payload.amount)
         if not amount.is_finite() or amount <= 0:
             raise ValueError()
-        normalized = str(amount.quantize(Decimal('0.01')))
+        normalized = str(amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
     except (InvalidOperation, ValueError):
         raise HTTPException(422, detail='Valor do orçamento inválido')
     existing = db.scalar(select(OrderEventOutbox).where(OrderEventOutbox.order_id == order_id))
