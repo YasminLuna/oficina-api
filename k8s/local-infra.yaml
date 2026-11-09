@@ -126,6 +126,9 @@ spec:
     metadata:
       labels: {app: localstack}
     spec:
+      # Prevent Kubernetes Service env vars such as DYNAMODB_LOCAL_PORT
+      # from conflicting with LocalStack's integer-valued settings.
+      enableServiceLinks: false
       containers:
       - name: localstack
         image: localstack/localstack:4.6
