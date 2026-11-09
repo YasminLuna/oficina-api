@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import Base, get_db
 from app.core.security import current_customer
 from app.main import app
-from app.models import Customer, OrderEventOutbox, OrderStatus
+from app.models import Customer, OrderEventOutbox
 
 
 @pytest.fixture
