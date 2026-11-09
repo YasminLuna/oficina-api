@@ -64,7 +64,7 @@ def run_saga(event):
     current = state(order_id)
     if current == "COMPENSATION_REQUIRED":
         raise RuntimeError(f"Saga {order_id} requires manual compensation")
-    if current == "COMPLETED":
+    if current in ("COMPLETED", "COMPENSATED"):
         log.info("Skipping terminal saga %s (%s)", order_id, current)
         return
     billing = "http://billing:8080/quotes/" + order_id
@@ -106,16 +106,38 @@ def run_saga(event):
             log.info("Saga completed: %s", order_id)
     except Exception as exc:
         log.exception("Saga failed for %s", order_id)
-        # Only cancel work that has not started. Approved quotes cannot be rejected
-        # using the current Billing contract: record this as manual intervention.
+        # Compensate only before work starts; after start, flag manual intervention.
+        compensation_errors = []
+        work = None
         try:
             work = http("GET", execution)
-            if work["state"] == "QUEUED":
+        except RuntimeError as lookup_error:
+            if "HTTP 404" not in str(lookup_error):
+                compensation_errors.append(str(lookup_error))
+        if work and work["state"] == "QUEUED":
+            try:
                 http("POST", execution + "/cancel")
-        except Exception:
-            log.warning("Execution compensation unavailable for %s", order_id)
-        set_state(order_id, amount, "COMPENSATION_REQUIRED", str(exc))
-        raise
+            except Exception as cancel_error:
+                compensation_errors.append(str(cancel_error))
+        elif work and work["state"] not in ("CANCELLED",):
+            compensation_errors.append("Execution already started; manual intervention required")
+
+        if not compensation_errors:
+            try:
+                quote = http("GET", billing)
+                if quote["state"] in ("PENDING", "APPROVED"):
+                    http("POST", billing + "/cancel")
+                elif quote["state"] != "CANCELLED":
+                    compensation_errors.append("Quote cannot be compensated")
+            except RuntimeError as lookup_error:
+                if "HTTP 404" not in str(lookup_error):
+                    compensation_errors.append(str(lookup_error))
+        status = "COMPENSATION_REQUIRED" if compensation_errors else "COMPENSATED"
+        set_state(order_id, amount, status, str(exc) + "; " + "; ".join(compensation_errors))
+        if status == "COMPENSATED":
+            log.warning("Saga compensated: %s", order_id)
+            return
+        raise RuntimeError(f"Saga {order_id} needs intervention: {compensation_errors}") from exc
 
 
 def main():
