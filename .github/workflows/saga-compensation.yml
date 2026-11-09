@@ -8,6 +8,8 @@ on:
       - 'app/local_saga_worker.py'
       - 'app/local_saga_compensation_e2e.py'
       - 'tests/test_local_saga_compensation.py'
+      - 'tests/test_saga_bdd.py'
+      - 'features/saga_compensation.feature'
       - 'tests/conftest.py'
       - 'requirements*.txt'
       - '.github/workflows/saga-compensation.yml'
@@ -32,4 +34,4 @@ jobs:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET: test-secret
           SQS_ENDPOINT_URL: http://localhost:4566
-        run: python -m pytest -p no:cacheprovider tests/test_local_saga_compensation.py -v
+        run: python -m pytest -p no:cacheprovider tests/test_local_saga_compensation.py tests/test_saga_bdd.py -v
