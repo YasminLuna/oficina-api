@@ -71,6 +71,19 @@ services:
         condition: service_started
       execution:
         condition: service_started
+      sqs-init:
+        condition: service_completed_successfully
+    profiles: ["emulators"]
+
+  sqs-init:
+    build: .
+    entrypoint: ["python", "-m", "app.local_sqs_init"]
+    environment:
+      SQS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    depends_on:
       localstack:
         condition: service_healthy
     profiles: ["emulators"]
@@ -110,8 +123,6 @@ services:
     environment:
       SERVICES: sqs
       AWS_DEFAULT_REGION: us-east-1
-    volumes:
-      - ./localstack/init/ready.d:/etc/localstack/init/ready.d:ro
     ports:
       - "127.0.0.1:4566:4566"
     profiles: ["emulators"]
