@@ -1,5 +1,9 @@
 """Unit tests for local outbox publishing and SQS queue provisioning."""
+import os
 from unittest.mock import MagicMock, patch
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("SQS_ENDPOINT_URL", "http://localhost:4566")
 
 from app import local_outbox_dispatcher as outbox
 from app import local_sqs_init as init
