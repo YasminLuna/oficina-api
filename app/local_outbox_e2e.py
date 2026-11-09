@@ -34,9 +34,9 @@ def call(method, url, payload=None, token=None):
 
 
 def main():
-    marker = uuid.uuid4().hex[:12]
+    marker = str(uuid.uuid4().int)[:14]
     with SessionLocal() as db:
-        customer = Customer(document="test" + marker, name="Teste integrado local")
+        customer = Customer(document=marker, name="Teste integrado local")
         db.add(customer)
         db.commit()
         customer_id = customer.id
