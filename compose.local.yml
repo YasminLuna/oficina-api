@@ -71,7 +71,11 @@ services:
         condition: service_started
       execution:
         condition: service_started
-      outbox-dispatcher:
+      sqs-init:
+        condition: service_completed_successfully
+    profiles: ["emulators"]
+
+  outbox-dispatcher:
     build: .
     entrypoint: ["python", "-m", "app.local_outbox_dispatcher"]
     environment:
@@ -86,10 +90,6 @@ services:
       oficina-api:
         condition: service_started
       sqs-init:
-        condition: service_completed_successfully
-    profiles: ["emulators"]
-
-  sqs-init:
         condition: service_completed_successfully
     profiles: ["emulators"]
 
