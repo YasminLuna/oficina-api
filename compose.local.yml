@@ -71,7 +71,25 @@ services:
         condition: service_started
       execution:
         condition: service_started
+      outbox-dispatcher:
+    build: .
+    entrypoint: ["python", "-m", "app.local_outbox_dispatcher"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://oficina:local-dev-only@postgres-os:5432/oficina_os
+      SQS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    depends_on:
+      postgres-os:
+        condition: service_healthy
+      oficina-api:
+        condition: service_started
       sqs-init:
+        condition: service_completed_successfully
+    profiles: ["emulators"]
+
+  sqs-init:
         condition: service_completed_successfully
     profiles: ["emulators"]
 
