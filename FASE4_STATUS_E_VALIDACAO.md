@@ -43,3 +43,16 @@ Com a stack local já iniciada, executar o E2E existente de Saga/Outbox e o E2E 
 - **Observabilidade**: API expõe métricas Prometheus; métricas e tracing completos dos demais serviços não foram comprovados.
 - **Cobertura**: percentuais definitivos dependem de nova execução; última medição enviada da API foi 58,95% antes dos commits recentes.
 - **Mercado Pago**: sandbox real depende de conta e credenciais, não é bloqueio para testes mock.
+
+## Estado de Kubernetes e CI (09/11/2026)
+
+- Cada repositório contém `k8s/local-service.yaml` e o workflow executa uma verificação sintática offline.
+- O script `validar-cobertura-fase4.sh` agora também verifica as relações entre Deployment, Service, portas, probes e imagens nos três manifests.
+- **Atenção:** estes manifests não constituem um cluster completo. O banco PostgreSQL, DynamoDB Local, SQS LocalStack, inicializadores, dispatcher e Saga worker ainda precisam ser disponibilizados no cluster ou conectados de forma segura a serviços locais. O secret `oficina-api-config` não é criado automaticamente.
+- Não aplicar em produção. Não há publicação de imagem, acesso à AWS nem exclusão de volumes.
+- A verificação estática não substitui um teste de rollout com `kubectl rollout status`, readiness e Saga ponta a ponta.
+- A aprovação de GitHub Actions precisa ser observada na aba Actions; o resultado de pytest executado no Mac não equivale à aprovação do pipeline remoto.
+
+## Próxima evidência
+
+Executar novamente `FASE4_BUILD_IMAGES=1 bash validar-cobertura-fase4.sh`, guardar logs, e confirmar os três workflows na aba Actions. Depois configurar um ambiente Kubernetes local isolado e validar a integração; não há necessidade de alterar ou remover os volumes existentes do Docker Compose.
