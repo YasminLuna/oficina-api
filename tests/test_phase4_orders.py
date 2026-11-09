@@ -66,10 +66,10 @@ def test_order_lifecycle_and_ownership(context):
     client, ids, identity, _ = context
     order = create(client)
     assert client.get("/api/v1/orders").json()[0]["vehicle_plate"] == "ABC1234"
-    assert client.patch(f"/api/v1/orders/{order}/status", params={"status": "DIAGNOSIS"}).status_code in (200, 422)
+    assert client.patch(f"/api/v1/orders/{order}/status", params={"status": "Diagnóstico"}).status_code == 200
     identity["sub"] = ids["other"]
     assert client.get("/api/v1/orders").json() == []
-    assert client.patch(f"/api/v1/orders/{order}/status", params={"status": "RECEIVED"}).status_code == 403
+    assert client.patch(f"/api/v1/orders/{order}/status", params={"status": "Recebida"}).status_code == 403
     assert client.post(f"/api/v1/orders/{order}/request-quote", json={"amount": "10"}).status_code == 403
 
 
@@ -101,7 +101,7 @@ def test_missing_order_and_inactive_customer(context):
     assert client.post(f"/api/v1/orders/{missing}/request-quote",
                        json={"amount": "10"}).status_code == 404
     assert client.patch(f"/api/v1/orders/{missing}/status",
-                        params={"status": "RECEIVED"}).status_code == 404
+                        params={"status": "Recebida"}).status_code == 404
     with Session(engine) as db:
         customer = db.get(Customer, ids["owner"])
         customer.active = False
