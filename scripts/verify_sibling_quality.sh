@@ -14,6 +14,7 @@ for service in oficina-billing-service oficina-execution-service; do
     -e PYTHONDONTWRITEBYTECODE=1 \
     -e PYTHONPATH=/workspace \
     -e COVERAGE_FILE=/tmp/.coverage \
+    -e RUFF_CACHE_DIR=/tmp/.ruff_cache \
     -e AWS_EC2_METADATA_DISABLED=true \
     -e AWS_ACCESS_KEY_ID=local \
     -e AWS_SECRET_ACCESS_KEY=local \
