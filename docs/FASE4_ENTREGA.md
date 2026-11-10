@@ -146,3 +146,16 @@ Links de verificacao:
 - Execution: https://github.com/YasminLuna/oficina-execution-service/actions/workflows/phase4-quality.yml
 
 **Proximos itens para submissao:** obter status dos workflows de Billing e Execution, conferir enunciado oficial, registrar evidencias de logs/metricas/traces efetivamente coletadas e gravar video. A disponibilidade do endpoint `/metrics` nao comprova, por si so, scraping ou traces distribuidos.
+
+## Conferencia com o enunciado oficial SOAT - Fase 4
+
+Foi localizado o arquivo oficial `SOAT - Fase 4 - Tech challenge.pdf` nos materiais da entrega. Alem de tres microsservicos, SQL/NoSQL, Saga, BDD e 80% de cobertura, o edital exige:
+
+- Integracao com **Mercado Pago**. Billing possui adaptador real e mock; o fluxo demonstrado e mock, portanto a integracao real ainda nao esta comprovada.
+- **Deploy automatizado em Kubernetes em cada CI/CD**. Os workflows `phase4-quality.yml` atuais realizam qualidade e build, **nao deploy**. Cluster kind funcional nao equivale a deploy automatizado comprovado.
+- **Protecao da main com PR obrigatorio e checagens**. Nao verificado.
+- **Monitoramento e rastreamento dos fluxos distribuidos**. Health/OpenAPI/metrics e logs nao comprovam tracing completo.
+- **Evidencia de cobertura por microsservico no README**, Swagger/Postman atualizado e documentacao da arquitetura. READMEs foram atualizados com resultados locais e links de CI, mas capturas/artefatos definitivos ainda devem ser anexados.
+- **Video de ate 15 minutos publicado** e **PDF com identificacao, links, diagrama e justificativa da Saga**. PDF preliminar foi preparado para preenchimento de identificacao e video.
+
+A conclusao da entrega depende dessas pendencias. Nao habilitar AWS paga ou realizar exclusao de volumes/PVCs sem autorizacao.
