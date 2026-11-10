@@ -56,9 +56,9 @@ Cada teste E2E cria registros de teste adicionais. Nao executar em producao.
 - [x] REST, mensageria SQS local, outbox, Saga e compensacao demonstrados
 - [x] Testes unitarios e E2E de sucesso/compensacao executados
 - [x] CI de compensacao aprovado
-- [ ] Confirmar execucao recente verde dos tres quality gates de 80% + lint + build
-- [ ] Confirmar BDD executavel e guardar saida/capturas
-- [ ] Confirmar endpoint Swagger/OpenAPI de cada servico e registrar capturas
+- [ ] Confirmar execucao recente verde dos tres quality gates de 80% + lint + build (API #33 aprovada; Billing e Execution pendentes)
+- [x] Confirmar BDD executavel: workflow Saga compensation #3 aprovado (commit fb04400); preservar capturas na submissao
+- [x] Confirmar disponibilidade de `/openapi.json` nos tres servicos no kind (API 6, Billing 7, Execution 6 paths); capturas da interface Swagger ainda pendentes
 - [ ] Consolidar observabilidade (logs, metricas, traces) com evidencias
 - [ ] Gravar video de demonstracao de ate 15 minutos
 - [ ] Conferir rubric/edital oficial e formatar PDF final com evidencias e links
@@ -127,3 +127,22 @@ Resultados apresentados no terminal local, usando `scripts/verify_sibling_qualit
 **Total: 118 testes aprovados, 0 falhas.** Os tres servicos superam a cobertura minima de 80%. O aviso de depreciacao Starlette/AnyIO nao bloqueou os testes. O script terminou com `Both service quality gates passed.`
 
 Os resultados acima sao evidencias de execucao **local**, nao substituem a confirmacao de status dos GitHub Actions. A validacao do build das imagens Docker dos repositorios Billing e Execution tambem e uma etapa separada dos comandos locais executados.
+
+
+### Atualizacao do GitHub Actions - 09/11/2026
+
+Evidencias visuais apresentadas da branch `feature/fase4-microservices` do repositorio API:
+
+- **API Phase 4 - quality and image #33**: **SUCCESS**, commit `7c2f71d`, 38 segundos. A falha anterior #32 era Ruff `F401` por import nao utilizado (`pytest_bdd.parsers`), corrigido no commit citado. O workflow inclui job `quality` (Ruff e cobertura >=80%) e job `image` (Docker build sem publicacao).
+- **Phase 4 - Saga compensation tests**: execucoes **#1, #2 e #3 aprovadas**; #3 commit `fb04400` e 29 segundos, conforme captura fornecida.
+- **CI/CD - Oficina API #138** e **Fase 4 prototype quality #65**: aprovados conforme captura da lista geral de Actions.
+- **Billing** e **Execution**: workflows presentes e quality gates locais aprovados, mas **nao ha captura de execucao recente do GitHub Actions**. Nao marcar CI remoto desses servicos como aprovado sem evidencia.
+
+Links de verificacao:
+
+- API: https://github.com/YasminLuna/oficina-api/actions/workflows/phase4-quality.yml
+- Saga: https://github.com/YasminLuna/oficina-api/actions/workflows/saga-compensation.yml
+- Billing: https://github.com/YasminLuna/oficina-billing-service/actions/workflows/phase4-quality.yml
+- Execution: https://github.com/YasminLuna/oficina-execution-service/actions/workflows/phase4-quality.yml
+
+**Proximos itens para submissao:** obter status dos workflows de Billing e Execution, conferir enunciado oficial, registrar evidencias de logs/metricas/traces efetivamente coletadas e gravar video. A disponibilidade do endpoint `/metrics` nao comprova, por si so, scraping ou traces distribuidos.
