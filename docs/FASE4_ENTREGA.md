@@ -113,3 +113,17 @@ O resultado deve ser registrado como evidencia apos execucao bem-sucedida.
 - Confirmar os dois quality gates locais e o status atual dos workflows no GitHub Actions.
 - Conferir os criterios com o enunciado oficial da Fase 4.
 - Capturar e anexar evidencias finais e gravar o video demonstrativo, se exigido pelo enunciado.
+
+### Fechamento dos quality gates locais - 09/11/2026
+
+Resultados apresentados no terminal local, usando `scripts/verify_sibling_quality.sh`:
+
+| Microsservico | Testes aprovados | Cobertura | Ruff | Manifests |
+|---|---:|---:|---|---|
+| API | 54 | 83,47% | a confirmar nesta rodada | validacao anterior do ambiente |
+| Billing | 43 | 91,24% | PASS | YAML valido |
+| Execution | 21 | 95,59% | PASS | YAML valido |
+
+**Total: 118 testes aprovados, 0 falhas.** Os tres servicos superam a cobertura minima de 80%. O aviso de depreciacao Starlette/AnyIO nao bloqueou os testes. O script terminou com `Both service quality gates passed.`
+
+Os resultados acima sao evidencias de execucao **local**, nao substituem a confirmacao de status dos GitHub Actions. A validacao do build das imagens Docker dos repositorios Billing e Execution tambem e uma etapa separada dos comandos locais executados.
