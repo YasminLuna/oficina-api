@@ -76,3 +76,40 @@ Cada teste E2E cria registros de teste adicionais. Nao executar em producao.
 ## Seguranca operacional
 
 Nao executar `kubectl delete pvc`, `kind delete cluster` ou `docker volume prune`. Nao habilitar `ENABLE_DEPLOY` nem provisionar AWS para demonstracao local.
+
+
+## Evidencias de validacao em 09/11/2026
+
+Resultados fornecidos pela execucao local no Mac (nao sao resultados de GitHub Actions):
+
+- Kubernetes kind `fiap-fase4`: 8/8 deployments disponiveis e 3/3 PVCs Bound.
+- API: `/health` PASS, `/openapi.json` PASS (6 paths), `/metrics` PASS (10.774 bytes).
+- Billing: `/health` PASS, `/openapi.json` PASS (7 paths).
+- Execution: `/health` PASS, `/openapi.json` PASS (6 paths).
+- API: 54 testes aprovados; cobertura total de 83,47%, acima do minimo de 80%.
+- Testes especificos de compensacao: BDD e tres testes unitarios aprovados.
+- Compensacao E2E no cluster local: Saga COMPENSATED, Billing CANCELLED, Execution NOT_CREATED.
+- Fluxo E2E de sucesso no cluster local: Saga COMPLETED, Billing APPROVED, Execution COMPLETED; duplicata DEDUPLICATED.
+- Um aviso de depreciacao do Starlette/AnyIO foi observado, sem falhas nos testes.
+
+### Quality gates dos servicos Billing e Execution
+
+Os workflows `.github/workflows/phase4-quality.yml` estao presentes em ambos os repositorios, mas a aprovacao das execucoes atuais ainda precisa ser confirmada.
+
+Para executar localmente sem alterar cluster, PVCs ou recursos AWS:
+
+```bash
+cd ~/fiap-local/oficina-api
+git pull --ff-only
+bash scripts/verify_sibling_quality.sh
+```
+
+O script verifica lint, testes, cobertura >= 80% e estrutura YAML dos dois servicos.
+A execucao requer Docker e os repositorios clonados em `~/fiap-local/`.
+O resultado deve ser registrado como evidencia apos execucao bem-sucedida.
+
+### Pendencias externas
+
+- Confirmar os dois quality gates locais e o status atual dos workflows no GitHub Actions.
+- Conferir os criterios com o enunciado oficial da Fase 4.
+- Capturar e anexar evidencias finais e gravar o video demonstrativo, se exigido pelo enunciado.
