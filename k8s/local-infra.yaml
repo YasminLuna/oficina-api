@@ -1,0 +1,154 @@
+# Development-only infrastructure for kind; never apply to production.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oficina-api-config
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql+psycopg://oficina:local-dev-only@postgres-os:5432/oficina_os
+  JWT_SECRET: local-kind-only-change-me
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-os-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-os
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: postgres-os}
+  template:
+    metadata:
+      labels: {app: postgres-os}
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        env:
+        - {name: POSTGRES_USER, value: oficina}
+        - {name: POSTGRES_PASSWORD, value: local-dev-only}
+        - {name: POSTGRES_DB, value: oficina_os}
+        ports:
+        - {containerPort: 5432}
+        readinessProbe:
+          exec:
+            command: [sh, -c, "pg_isready -U oficina -d oficina_os"]
+          periodSeconds: 5
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+        volumeMounts:
+        - {name: data, mountPath: /var/lib/postgresql/data}
+      volumes:
+      - name: data
+        persistentVolumeClaim: {claimName: postgres-os-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-os
+spec:
+  selector: {app: postgres-os}
+  ports:
+  - {port: 5432, targetPort: 5432}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dynamodb-local-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynamodb-local
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: dynamodb-local}
+  template:
+    metadata:
+      labels: {app: dynamodb-local}
+    spec:
+      containers:
+      - name: dynamodb
+        image: amazon/dynamodb-local:2.6.1
+        command: [java, "-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+        ports:
+        - {containerPort: 8000}
+        readinessProbe:
+          tcpSocket: {port: 8000}
+          periodSeconds: 5
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+        volumeMounts:
+        - {name: data, mountPath: /home/dynamodblocal/data}
+      volumes:
+      - name: data
+        persistentVolumeClaim: {claimName: dynamodb-local-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynamodb-local
+spec:
+  selector: {app: dynamodb-local}
+  ports:
+  - {port: 8000, targetPort: 8000}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: localstack}
+  template:
+    metadata:
+      labels: {app: localstack}
+    spec:
+      # Prevent Kubernetes Service env vars such as DYNAMODB_LOCAL_PORT
+      # from conflicting with LocalStack's integer-valued settings.
+      enableServiceLinks: false
+      containers:
+      - name: localstack
+        image: localstack/localstack:4.6
+        env:
+        - {name: SERVICES, value: sqs}
+        - {name: AWS_DEFAULT_REGION, value: us-east-1}
+        ports:
+        - {containerPort: 4566}
+        readinessProbe:
+          httpGet: {path: /_localstack/health, port: 4566}
+          periodSeconds: 5
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: "1", memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+spec:
+  selector: {app: localstack}
+  ports:
+  - {port: 4566, targetPort: 4566}

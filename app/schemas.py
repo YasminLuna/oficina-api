@@ -19,3 +19,7 @@ class OrderOut(BaseModel):
     vehicle_plate: str
     status: OrderStatus
     model_config = {'from_attributes': True}
+
+
+class QuoteRequest(BaseModel):
+    amount: str = Field(min_length=1)

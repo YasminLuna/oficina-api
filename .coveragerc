@@ -1,0 +1,11 @@
+[run]
+source = app
+# These are standalone local CLI/E2E entrypoints, not application request handlers.
+# They are exercised separately by Docker Compose integration checks.
+omit =
+    app/local_outbox_e2e.py
+    app/local_payment_mock_e2e.py
+    app/local_saga_demo.py
+
+[report]
+show_missing = True
