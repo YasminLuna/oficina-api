@@ -3,7 +3,7 @@ import importlib
 import sys
 
 import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 scenarios("../features/saga_compensation.feature")
 
