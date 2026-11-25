@@ -1,4 +1,6 @@
 import logging
+import json
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import time
 import uuid
 from datetime import datetime, timezone
@@ -21,8 +23,8 @@ from .metrics import (
     STATUS_CHANGES,
     STATUS_DURATION_SECONDS,
 )
-from .models import Customer, OrderStatus, OrderStatusHistory, ServiceOrder
-from .schemas import CustomerCreate, CustomerOut, OrderCreate, OrderOut
+from .models import Customer, OrderStatus, OrderStatusHistory, ServiceOrder, OrderEventOutbox
+from .schemas import CustomerCreate, CustomerOut, OrderCreate, OrderOut, QuoteRequest
 
 configure_logging()
 logger = logging.getLogger('oficina.api')
@@ -127,14 +129,13 @@ def list_orders(
     claims: dict = Depends(current_customer),
     db: Session = Depends(get_db),
 ):
-    del claims
     priority = [
         OrderStatus.EXECUTION,
         OrderStatus.WAITING_APPROVAL,
         OrderStatus.DIAGNOSIS,
         OrderStatus.RECEIVED,
     ]
-    rows = db.scalars(select(ServiceOrder).where(ServiceOrder.status.in_(priority))).all()
+    rows = db.scalars(select(ServiceOrder).where(ServiceOrder.customer_id == claims['sub']).where(ServiceOrder.status.in_(priority))).all()
     rank = {status: index for index, status in enumerate(priority)}
     return sorted(rows, key=lambda item: (rank[item.status], item.created_at))
 
@@ -146,10 +147,11 @@ def update_status(
     claims: dict = Depends(current_customer),
     db: Session = Depends(get_db),
 ):
-    del claims
     order = db.get(ServiceOrder, order_id)
     if not order:
         raise HTTPException(status_code=404, detail='OS não encontrada')
+    if str(order.customer_id) != str(claims['sub']):
+        raise HTTPException(status_code=403, detail='OS não pertence ao cliente')
 
     previous_status = order.status
     if previous_status == status:
@@ -176,3 +178,41 @@ def update_status(
     db.refresh(order)
     STATUS_CHANGES.labels(previous_status.value, status.value).inc()
     return order
+
+
+@app.post('/api/v1/orders/{order_id}/request-quote', status_code=202)
+def request_quote(
+    order_id: str,
+    payload: QuoteRequest,
+    claims: dict = Depends(current_customer),
+    db: Session = Depends(get_db),
+):
+    """Atomically record a priced order event; outbox dispatcher publishes to SQS.
+
+    Creation of an order alone cannot publish a billing event because its amount
+    is not known at that point in the current domain model.
+    """
+    order = db.get(ServiceOrder, order_id)
+    if not order:
+        raise HTTPException(404, detail='OS não encontrada')
+    if str(order.customer_id) != str(claims['sub']):
+        raise HTTPException(403, detail='OS não pertence ao cliente')
+    try:
+        amount = Decimal(payload.amount)
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError()
+        normalized = str(amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError):
+        raise HTTPException(422, detail='Valor do orçamento inválido')
+    existing = db.scalar(select(OrderEventOutbox).where(OrderEventOutbox.order_id == order_id))
+    if existing:
+        if existing.amount != normalized:
+            raise HTTPException(409, detail='Orçamento já solicitado com outro valor')
+        return {'order_id': order_id, 'event_id': existing.id, 'status': 'PUBLISHED' if existing.published_at else 'PENDING'}
+    event = OrderEventOutbox(order_id=order_id, amount=normalized, payload='')
+    db.add(event)
+    db.flush()
+    event.payload = json.dumps({'event_id': event.id, 'event_type': 'ORDER_CREATED',
+                                'order_id': order_id, 'amount': normalized})
+    db.commit()
+    return {'order_id': order_id, 'event_id': event.id, 'status': 'PENDING'}

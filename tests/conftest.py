@@ -1,7 +1,8 @@
 import os
 os.environ['DATABASE_URL']='sqlite:///./test.db'
 os.environ['JWT_SECRET']='test-secret'
-import jwt, pytest
+import jwt
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 

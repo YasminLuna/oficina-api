@@ -1,0 +1,77 @@
+# Local-only Saga workers. Requires local-infra.yaml, local-init-jobs.yaml,
+# and all three microservice Deployments to be ready.
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing
+spec:
+  selector: {app: oficina-billing-service}
+  ports:
+  - {port: 8080, targetPort: 8080}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution
+spec:
+  selector: {app: oficina-execution-service}
+  ports:
+  - {port: 8080, targetPort: 8080}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oficina-outbox-dispatcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: oficina-outbox-dispatcher}
+  template:
+    metadata:
+      labels: {app: oficina-outbox-dispatcher}
+    spec:
+      containers:
+      - name: dispatcher
+        image: oficina-api:local
+        imagePullPolicy: Never
+        command: [python, -m, app.local_outbox_dispatcher]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef: {name: oficina-api-config, key: DATABASE_URL}
+        - {name: SQS_ENDPOINT_URL, value: "http://localstack:4566"}
+        - {name: AWS_ACCESS_KEY_ID, value: local}
+        - {name: AWS_SECRET_ACCESS_KEY, value: local}
+        - {name: AWS_DEFAULT_REGION, value: us-east-1}
+        resources:
+          requests: {cpu: 25m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oficina-saga-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: oficina-saga-worker}
+  template:
+    metadata:
+      labels: {app: oficina-saga-worker}
+    spec:
+      containers:
+      - name: worker
+        image: oficina-api:local
+        imagePullPolicy: Never
+        command: [python, -m, app.local_saga_worker]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef: {name: oficina-api-config, key: DATABASE_URL}
+        - {name: SQS_ENDPOINT_URL, value: "http://localstack:4566"}
+        - {name: AWS_ACCESS_KEY_ID, value: local}
+        - {name: AWS_SECRET_ACCESS_KEY, value: local}
+        - {name: AWS_DEFAULT_REGION, value: us-east-1}
+        resources:
+          requests: {cpu: 25m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}

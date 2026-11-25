@@ -1,0 +1,60 @@
+# One-time local emulator initialization. Apply only after local-infra.yaml is ready.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oficina-sqs-init
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: oficina-api:local
+        imagePullPolicy: Never
+        command: [python, -m, app.local_sqs_init]
+        env:
+        - {name: SQS_ENDPOINT_URL, value: "http://localstack:4566"}
+        - {name: AWS_ACCESS_KEY_ID, value: local}
+        - {name: AWS_SECRET_ACCESS_KEY, value: local}
+        - {name: AWS_DEFAULT_REGION, value: us-east-1}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oficina-dynamodb-init
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: oficina-execution-service:local
+        imagePullPolicy: Never
+        command:
+        - python
+        - -c
+        - |
+          import boto3, time
+          db = boto3.client("dynamodb", endpoint_url="http://dynamodb-local:8000", region_name="us-east-1", aws_access_key_id="local", aws_secret_access_key="local")
+          for attempt in range(30):
+              try:
+                  tables = db.list_tables()["TableNames"]
+                  break
+              except Exception:
+                  if attempt == 29:
+                      raise
+                  time.sleep(2)
+          if "oficina-execution-local" not in tables:
+              db.create_table(
+                  TableName="oficina-execution-local",
+                  KeySchema=[{"AttributeName": "order_id", "KeyType": "HASH"}],
+                  AttributeDefinitions=[{"AttributeName": "order_id", "AttributeType": "S"}],
+                  BillingMode="PAY_PER_REQUEST",
+              )
+          print("DynamoDB Local table ready", flush=True)
+        env:
+        - {name: AWS_ACCESS_KEY_ID, value: local}
+        - {name: AWS_SECRET_ACCESS_KEY, value: local}
+        - {name: AWS_DEFAULT_REGION, value: us-east-1}

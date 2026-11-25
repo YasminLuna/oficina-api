@@ -1,0 +1,24 @@
+name: Fase 4 prototype quality
+on:
+  pull_request:
+    branches: [hml]
+  workflow_dispatch:
+jobs:
+  prototype-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt
+      - name: Test and enforce 80 percent prototype coverage
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET: test-secret
+        run: pytest tests/test_fase4_saga.py tests/test_fase4_domains.py --cov=fase4_staging --cov-report=term-missing --cov-report=xml:coverage-fase4.xml --cov-fail-under=80
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fase4-prototype-coverage
+          path: coverage-fase4.xml
