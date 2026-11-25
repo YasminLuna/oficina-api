@@ -40,3 +40,36 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build local image without publishing
         run: docker build -t oficina-api:ci .
+
+  deploy-kind:
+    needs: [quality, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: fase4-ci
+      - name: Build and load image
+        run: |
+          docker build -t oficina-api:ci .
+          kind load docker-image oficina-api:ci --name fase4-ci
+      - name: Deploy isolated API smoke environment
+        run: |
+          kubectl --context kind-fase4-ci create namespace fiap-fase4
+          kubectl --context kind-fase4-ci -n fiap-fase4 create deployment oficina-api --image=oficina-api:ci
+          kubectl --context kind-fase4-ci -n fiap-fase4 set env deployment/oficina-api DATABASE_URL=sqlite:////tmp/ci.db JWT_SECRET=ci-only-secret DD_TRACE_ENABLED=false AWS_EC2_METADATA_DISABLED=true
+          kubectl --context kind-fase4-ci -n fiap-fase4 rollout status deployment/oficina-api --timeout=180s
+          kubectl --context kind-fase4-ci -n fiap-fase4 expose deployment oficina-api --port=8000
+      - name: Smoke test API
+        run: |
+          kubectl --context kind-fase4-ci -n fiap-fase4 port-forward svc/oficina-api 18000:8000 >/tmp/forward.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          curl --fail --retry 20 --retry-all-errors --retry-delay 2 http://localhost:18000/health
+          curl --fail http://localhost:18000/ready
+          curl --fail http://localhost:18000/openapi.json -o /tmp/openapi.json
+          curl --fail http://localhost:18000/metrics -o /tmp/metrics.txt
+      - name: Deployment evidence
+        if: always()
+        run: kubectl --context kind-fase4-ci -n fiap-fase4 get deployments,pods,svc -o wide
