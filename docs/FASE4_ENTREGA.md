@@ -159,3 +159,8 @@ Foi localizado o arquivo oficial `SOAT - Fase 4 - Tech challenge.pdf` nos materi
 - **Video de ate 15 minutos publicado** e **PDF com identificacao, links, diagrama e justificativa da Saga**. PDF preliminar foi preparado para preenchimento de identificacao e video.
 
 A conclusao da entrega depende dessas pendencias. Nao habilitar AWS paga ou realizar exclusao de volumes/PVCs sem autorizacao.
+
+
+### Mercado Pago — evidência de conectividade (25/11/2026)
+
+Workflow `Mercado Pago sandbox connectivity #1` no Billing, branch `feature/fase4-service`, commit `ebae2fe`, aprovado em 7 segundos conforme captura apresentada. O workflow exige token TEST- e executa GET /v1/payments/search?limit=1 com HTTP 200, sem criar pagamentos nem imprimir dados de transações. Autenticação e conectividade comprovadas; criação de pagamento sandbox, persistência e atualização de estado ainda não comprovadas.
